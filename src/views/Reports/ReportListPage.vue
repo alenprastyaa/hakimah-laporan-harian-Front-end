@@ -20,12 +20,42 @@ const showModal = ref(false)
 const showEditModal = ref(false)
 const selectedReport = ref(null)
 const editableReport = ref(null)
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+const totalPages = ref(0)
+const totalItems = ref(0)
 
 const filter = ref({
   store_id: '',
   start_date: '',
   end_date: '',
 })
+
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    fetchReports()
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    fetchReports()
+  }
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    fetchReports()
+  }
+}
+
+const changeItemsPerPage = () => {
+  currentPage.value = 1
+  fetchReports()
+}
 
 const fetchReports = async () => {
   isLoading.value = true
@@ -42,12 +72,17 @@ const fetchReports = async () => {
       queryParams.append('end_date', filter.value.end_date)
     }
 
-    const apiUrl = queryParams.toString() ? `/reports?${queryParams.toString()}` : '/reports'
+    queryParams.append('page', currentPage.value)
+    queryParams.append('limit', itemsPerPage.value)
 
+    const apiUrl = `/reports?${queryParams.toString()}`
     console.log('Fetching reports with URL:', apiUrl)
 
     const response = await get(apiUrl)
     let fetchedReports = response.reports || []
+
+    totalItems.value = response.total || fetchedReports.length
+    totalPages.value = response.total_pages || Math.ceil(totalItems.value / itemsPerPage.value)
 
     if (fetchedReports.length > 0) {
       if (filter.value.store_id) {
@@ -505,9 +540,9 @@ const resetFilter = () => {
     start_date: '',
     end_date: '',
   }
+  currentPage.value = 1
   fetchReports()
 }
-
 const handleRemoveUangNitip = async (reportId) => {
   if (!reportId || typeof reportId !== 'string') {
     console.error('Invalid report ID:', reportId)
@@ -1568,6 +1603,84 @@ const handleRemoveUangNitip = async (reportId) => {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+    <!-- Pagination Controls -->
+    <div
+      v-if="reports.length > 0"
+      class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg shadow"
+    >
+      <!-- Items Per Page -->
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-600">Tampilkan:</label>
+        <select
+          v-model="itemsPerPage"
+          @change="changeItemsPerPage"
+          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option :value="5">5</option>
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+        </select>
+        <span class="text-sm text-gray-600">per halaman</span>
+      </div>
+
+      <!-- Page Info -->
+      <div class="text-sm text-gray-600">
+        Menampilkan {{ (currentPage - 1) * itemsPerPage + 1 }} -
+        {{ Math.min(currentPage * itemsPerPage, totalItems) }} dari {{ totalItems }} laporan
+      </div>
+
+      <!-- Page Navigation -->
+      <div class="flex items-center gap-2">
+        <button
+          @click="prevPage"
+          :disabled="currentPage === 1"
+          class="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 19l-7-7 7-7"
+            ></path>
+          </svg>
+        </button>
+
+        <!-- Page Numbers -->
+        <div class="flex gap-1">
+          <button
+            v-for="page in totalPages"
+            :key="page"
+            v-show="Math.abs(page - currentPage) <= 2 || page === 1 || page === totalPages"
+            @click="goToPage(page)"
+            :class="[
+              'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+              page === currentPage
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 text-gray-700 hover:bg-gray-50',
+            ]"
+          >
+            {{ page }}
+          </button>
+        </div>
+
+        <button
+          @click="nextPage"
+          :disabled="currentPage === totalPages"
+          class="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5l7 7-7 7"
+            ></path>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
